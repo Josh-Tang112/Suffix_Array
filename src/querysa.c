@@ -72,8 +72,8 @@ int main(int argc, char *argv[]) {
     size_t end = ftell(query_file);
     fseek(query_file,0,SEEK_SET);
     unsigned int query_file_len = end - start;
-    char *queries = (char *)malloc(query_file_len), ch; // allocate mem for query file
-    int num_query = 0, name_start = 0, name_reading = 0, query_start = 0, query_reading = 0;
+    char *queries = (char *)malloc(query_file_len + 1), ch; // allocate mem for query file
+    int num_query = 0, name_start = 0, name_reading = 0, query_start = 0, query_reading = 0, waiting = 0;
     int n = 0; num_read = 0;
     do {ch = fgetc(query_file); if(ch == '>'){num_query++;} } while(ch != EOF); // get number of queries
     fseek(query_file,0,SEEK_SET);
@@ -81,28 +81,35 @@ int main(int argc, char *argv[]) {
     char **query_str = (char **)malloc(num_query * sizeof(char *)); // allocate mem for pointers to q str
     do {
         ch = fgetc(query_file);
-        if(ch == '>') {
+        if(ch == '>') { // 1
             if(query_reading == 1){queries[n] = '\0'; n++;}
             name_start = 1;
         }
-        else if(name_start == 1 && ch != '\n'){
+        else if(name_start == 1){ // 2
             queries[n] = ch; 
             query_names[num_read] = queries + n;
             n++; name_start = 0; name_reading = 1;
         }
-        else if(name_reading == 1 && ch != '\n'){
+        else if(name_reading == 1 && !isspace(ch)){ // 3
             queries[n] = ch; n++;
         }
-        else if(name_reading == 1 && ch == '\n'){
+        else if(name_reading == 1 && isspace(ch) && ch != '\n'){ // 4
+            queries[n] = '\0';
+            n++; name_reading = 0; waiting = 1;
+        }
+        else if(name_reading == 1 && ch == '\n'){  // 5
             queries[n] = '\0';
             n++; name_reading = 0; query_start = 1;
         }
-        else if(query_start == 1 && isalpha(ch)){
+        else if(waiting && ch == '\n'){ // 6
+            query_start = 1; waiting = 0;
+        }
+        else if(query_start == 1 && isalpha(ch)){ // 7
             queries[n] = toupper(ch);
             query_str[num_read] = queries + n;
             n++; num_read++; query_start = 0; query_reading = 1;
         }
-        else if(query_reading == 1 && isalpha(ch)){
+        else if(query_reading == 1 && isalpha(ch)){ // 8
             queries[n] = toupper(ch); n++;
         }
     } while(ch != EOF);
